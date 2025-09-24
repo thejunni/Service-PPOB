@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../prisma";
-import { createOrder } from "../services/digiFlazzService";
+import { createOrder } from "../services/digiflazzService";
 
 export const getTransactions = async (req: Request, res: Response) => {
   const transactions = await prisma.transaction.findMany({
