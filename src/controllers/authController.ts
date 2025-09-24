@@ -10,6 +10,36 @@ import {
 } from "../services/tokenService";
 
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Autentikasi pengguna
+ */
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Registrasi user baru
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User berhasil dibuat
+ */
 
 export const register = async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
@@ -47,6 +77,27 @@ export const register = async (req: Request, res: Response) => {
     });
 };
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login user dan mendapatkan JWT
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login berhasil
+ */
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password)
@@ -72,6 +123,16 @@ export const login = async (req: Request, res: Response) => {
   });
 };
 
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh token akses
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Token diperbarui
+ */
 export const refresh = async (req: Request, res: Response) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!token) return res.status(401).json({ message: "No refresh token" });
@@ -100,6 +161,16 @@ export const refresh = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout berhasil
+ */
 export const logout = async (req: Request, res: Response) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
   if (token) {
