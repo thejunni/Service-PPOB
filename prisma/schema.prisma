@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql" // atau postgresql/sqlite sesuai kebutuhan
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int                   @id @default(autoincrement())
+  username      String                @unique
+  email         String                @unique
+  password      String
+  role          Role                  @default(USER)
+  status        UserStatus            @default(PENDING)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // Relasi
+  transactions  TransactionDigiflazz[]
+  refreshTokens RefreshToken[]
+}
+
+model Product {
+  id            Int                   @id @default(autoincrement())
+  idProvider    String
+  name          String
+  category      ProductCategory
+  price         Float
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // Relasi
+  transactions  TransactionDigiflazz[]
+}
+
+model TransactionDigiflazz {
+  id           Int               @id @default(autoincrement())
+  refId        String            @unique
+  buyerSkuCode String
+  customerNo   String
+  status       TransactionStatus @default(CREATED)
+  sn           String?
+  rawResponse  String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relasi
+  userId       Int
+  user         User              @relation(fields: [userId], references: [id])
+
+  productId    Int
+  product      Product           @relation(fields: [productId], references: [id])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+
+  // Relasi
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum UserStatus {
+  VERIFIED
+  UNVERIFIED
+  PENDING
+}
+
+enum ProductCategory {
+  ENTERTAINMENT
+  DAILY
+  BILLS
+}
+
+enum TransactionStatus {
+  CREATED
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
