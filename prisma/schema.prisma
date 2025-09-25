@@ -27,7 +27,9 @@ model Product {
   idProvider    String
   name          String
   category      ProductCategory
-  price         Float
+  base_price   	Int
+  selling_price Int
+  profit      	Int
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
