@@ -1,20 +1,22 @@
+// src/controllers/authController.ts
 import { Request, Response } from "express";
 import prisma from "../prisma";
 import { hashPassword, comparePassword } from "../utils/hash";
 import {
   signAccessToken,
   createRefreshToken,
-  verifyAccessToken,
+  verifyRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
 } from "../services/tokenService";
 
 const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+
 /**
  * @swagger
  * tags:
  *   name: Auth
- *   description: Autentikasi pengguna
+ *   description: Endpoint untuk autentikasi dan otorisasi
  */
 
 /**
@@ -29,18 +31,28 @@ const SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
  *             properties:
  *               username:
  *                 type: string
+ *                 example: johndoe
  *               email:
  *                 type: string
+ *                 example: johndoe@example.com
  *               password:
  *                 type: string
+ *                 example: secret123
  *     responses:
  *       201:
  *         description: User berhasil dibuat
+ *       400:
+ *         description: Data tidak lengkap
+ *       409:
+ *         description: User sudah ada
  */
-
 export const register = async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) {
@@ -62,19 +74,15 @@ export const register = async (req: Request, res: Response) => {
   const accessToken = signAccessToken({ userId: user.id, role: user.role });
   const refreshToken = await createRefreshToken(user.id);
 
-  // set HttpOnly cookie
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     sameSite: "lax",
-    // secure: true in production
   });
 
-  res
-    .status(201)
-    .json({
-      user: { id: user.id, username: user.username, email: user.email },
-      accessToken,
-    });
+  res.status(201).json({
+    user: { id: user.id, username: user.username, email: user.email },
+    accessToken,
+  });
 };
 
 /**
@@ -89,14 +97,21 @@ export const register = async (req: Request, res: Response) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
  *             properties:
  *               email:
  *                 type: string
+ *                 example: johndoe@example.com
  *               password:
  *                 type: string
+ *                 example: secret123
  *     responses:
  *       200:
  *         description: Login berhasil
+ *       401:
+ *         description: Kredensial salah
  */
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -127,11 +142,23 @@ export const login = async (req: Request, res: Response) => {
  * @swagger
  * /auth/refresh:
  *   post:
- *     summary: Refresh token akses
+ *     summary: Refresh access token menggunakan refresh token
  *     tags: [Auth]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 example: your_refresh_token_here
  *     responses:
  *       200:
- *         description: Token diperbarui
+ *         description: Token berhasil diperbarui
+ *       401:
+ *         description: Refresh token tidak valid
  */
 export const refresh = async (req: Request, res: Response) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
@@ -142,16 +169,14 @@ export const refresh = async (req: Request, res: Response) => {
     return res.status(401).json({ message: "Invalid refresh token" });
 
   try {
-    const payload = verifyAccessToken(token) as any; // token includes userId
+    const payload = verifyRefreshToken(token) as any;
     const userId = payload?.userId;
     if (!userId)
       return res.status(401).json({ message: "Invalid token payload" });
 
-    // issue new tokens
     const accessToken = signAccessToken({ userId, role: payload.role });
     const newRefresh = await createRefreshToken(userId);
 
-    // revoke old token
     await revokeRefreshToken(token);
 
     res.cookie("refreshToken", newRefresh, { httpOnly: true, sameSite: "lax" });
@@ -165,7 +190,7 @@ export const refresh = async (req: Request, res: Response) => {
  * @swagger
  * /auth/logout:
  *   post:
- *     summary: Logout user
+ *     summary: Logout user (revoke refresh token)
  *     tags: [Auth]
  *     responses:
  *       200:
@@ -180,8 +205,21 @@ export const logout = async (req: Request, res: Response) => {
   res.json({ message: "Logged out" });
 };
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Mendapatkan profil user yang sedang login
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profil user
+ *       401:
+ *         description: Tidak terautentikasi
+ */
 export const me = async (req: Request, res: Response) => {
-  // middleware harus set req.userId
   const userId = (req as any).userId;
   if (!userId) return res.status(401).json({ message: "Unauthenticated" });
 

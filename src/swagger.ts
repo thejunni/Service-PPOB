@@ -25,6 +25,7 @@ const options: Options = {
       },
     },
   },
+  security: [{ bearerAuth: [] }],
   apis: ["./src/controllers/*.ts"], // lokasi anotasi swagger-mu
 };
 

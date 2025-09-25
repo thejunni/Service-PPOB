@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { handleDigiflazzWebhook } from "../services/digiflazzService";
+import prisma from "../prisma";
 
 /**
  * @swagger
@@ -10,42 +11,52 @@ import { handleDigiflazzWebhook } from "../services/digiflazzService";
 
 /**
  * @swagger
- * /digiflazz/webhook:
+ * /transactions/webhook/digiflazz:
  *   post:
- *     summary: Webhook Digiflazz untuk update status transaksi
- *     tags: [Digiflazz]
+ *     summary: Webhook callback dari Digiflazz (update status transaksi)
+ *     tags: [Transactions]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - ref_id
- *               - status
  *             properties:
  *               ref_id:
  *                 type: string
  *                 example: "trx_123456789"
  *               status:
  *                 type: string
- *                 enum: [PENDING, SUCCESS, FAILED]
  *                 example: "SUCCESS"
  *               sn:
  *                 type: string
- *                 example: "123456789012345"
+ *                 example: "1234567890"
  *     responses:
  *       200:
- *         description: Webhook diterima dan diproses
- *       400:
- *         description: Gagal memproses webhook
+ *         description: Callback berhasil diterima
  */
-export async function digiflazzWebhook(req: Request, res: Response) {
+export const digiflazzWebhook = async (req: Request, res: Response) => {
   try {
-    await handleDigiflazzWebhook(req.body);
-    return res.json({ success: true });
-  } catch (err: any) {
-    console.error("Webhook error:", err.message);
-    return res.status(400).json({ success: false, message: err.message });
+    const { ref_id, status, sn } = req.body;
+
+    const trx = await prisma.transactionDigiflazz.findUnique({
+      where: { refId: ref_id },
+    });
+
+    if (!trx) return res.status(404).json({ error: "Transaction not found" });
+
+    await prisma.transactionDigiflazz.update({
+      where: { refId: ref_id },
+      data: {
+        status,
+        sn: sn || trx.sn,
+        rawResponse: JSON.stringify(req.body),
+      },
+    });
+
+    res.json({ message: "Webhook processed successfully" });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).json({ error: "Failed to process webhook" });
   }
-}
+};

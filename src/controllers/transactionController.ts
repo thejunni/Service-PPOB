@@ -6,7 +6,7 @@ import { createOrder } from "../services/digiflazzService";
  * @swagger
  * tags:
  *   name: Transactions
- *   description: Endpoint untuk transaksi PPOB
+ *   description: Endpoint untuk transaksi PPOB Digiflazz
  */
 
 /**
@@ -20,7 +20,7 @@ import { createOrder } from "../services/digiflazzService";
  *         description: Daftar transaksi
  */
 export const getTransactions = async (req: Request, res: Response) => {
-  const transactions = await prisma.transaction.findMany({
+  const transactions = await prisma.transactionDigiflazz.findMany({
     include: { user: true, product: true },
   });
   res.json(transactions);
@@ -30,7 +30,7 @@ export const getTransactions = async (req: Request, res: Response) => {
  * @swagger
  * /transactions:
  *   post:
- *     summary: Buat transaksi baru (manual, bukan Digiflazz)
+ *     summary: Buat transaksi manual (tidak order ke Digiflazz)
  *     tags: [Transactions]
  *     requestBody:
  *       required: true
@@ -41,6 +41,7 @@ export const getTransactions = async (req: Request, res: Response) => {
  *             required:
  *               - userId
  *               - productId
+ *               - customerNo
  *             properties:
  *               userId:
  *                 type: integer
@@ -48,23 +49,49 @@ export const getTransactions = async (req: Request, res: Response) => {
  *               productId:
  *                 type: integer
  *                 example: 2
+ *               customerNo:
+ *                 type: string
+ *                 example: "081234567890"
  *     responses:
- *       200:
+ *       201:
  *         description: Transaksi berhasil dibuat
  */
 export const createTransaction = async (req: Request, res: Response) => {
-  const { userId, productId } = req.body;
-  const transaction = await prisma.transaction.create({
-    data: { userId, productId },
-  });
-  res.json(transaction);
+  try {
+    const { userId, productId, customerNo } = req.body;
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
+    const refId = `TX-${Date.now()}`;
+
+    const transaction = await prisma.transactionDigiflazz.create({
+      data: {
+        refId,
+        buyerSkuCode: product.idProvider,
+        customerNo,
+        status: "PENDING",
+        rawResponse: "{}",
+        user: { connect: { id: userId } },
+        product: { connect: { id: productId } },
+      },
+      include: { user: true, product: true },
+    });
+
+    res.status(201).json(transaction);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to create transaction" });
+  }
 };
 
 /**
  * @swagger
  * /transactions/{id}:
  *   put:
- *     summary: Update status transaksi
+ *     summary: Update status transaksi manual
  *     tags: [Transactions]
  *     parameters:
  *       - in: path
@@ -92,10 +119,12 @@ export const createTransaction = async (req: Request, res: Response) => {
 export const updateTransactionStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
-  const transaction = await prisma.transaction.update({
+
+  const transaction = await prisma.transactionDigiflazz.update({
     where: { id: Number(id) },
     data: { status },
   });
+
   res.json(transaction);
 };
 
@@ -112,12 +141,16 @@ export const updateTransactionStatus = async (req: Request, res: Response) => {
  *           schema:
  *             type: object
  *             required:
- *               - buyerSkuCode
+ *               - userId
+ *               - productId
  *               - customerNo
  *             properties:
- *               buyerSkuCode:
- *                 type: string
- *                 example: "pulsa10k"
+ *               userId:
+ *                 type: integer
+ *                 example: 1
+ *               productId:
+ *                 type: integer
+ *                 example: 2
  *               customerNo:
  *                 type: string
  *                 example: "081234567890"
@@ -129,33 +162,40 @@ export const updateTransactionStatus = async (req: Request, res: Response) => {
  */
 export const orderProduct = async (req: Request, res: Response) => {
   try {
-    const { buyerSkuCode, customerNo } = req.body;
+    const { userId, productId, customerNo } = req.body;
 
-    // bikin refId unik
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
     const refId = `trx_${Date.now()}`;
 
-    // Simpan transaksi di DB dengan status "PENDING"
-    const trx = await prisma.transaction.create({
+    // Simpan transaksi ke DB dengan status PENDING
+    const trx = await prisma.transactionDigiflazz.create({
       data: {
         refId,
-        buyerSkuCode,
+        buyerSkuCode: product.idProvider,
         customerNo,
         status: "PENDING",
+        rawResponse: "{}",
+        user: { connect: { id: userId } },
+        product: { connect: { id: productId } },
       },
     });
 
-    // Request ke Digiflazz
+    // Kirim order ke Digiflazz
     const digiflazzResponse = await createOrder(
-      buyerSkuCode,
+      product.idProvider,
       customerNo,
       refId
     );
 
-    // Update status berdasarkan respon awal Digiflazz
-    await prisma.transaction.update({
+    // Update status awal sesuai response Digiflazz
+    await prisma.transactionDigiflazz.update({
       where: { id: trx.id },
       data: {
-        status: digiflazzResponse.data.status || "PENDING",
+        status: digiflazzResponse.data?.status || "PENDING",
         rawResponse: JSON.stringify(digiflazzResponse),
       },
     });

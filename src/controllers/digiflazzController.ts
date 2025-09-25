@@ -67,7 +67,7 @@ export const digiflazzCallback = async (req: Request, res: Response) => {
     const { ref_id, status, sn } = req.body;
 
     // Update transaksi sesuai ref_id
-    await prisma.transaction.updateMany({
+    await prisma.transactionDigiflazz.updateMany({
       where: { refId: ref_id },
       data: { status, sn },
     });

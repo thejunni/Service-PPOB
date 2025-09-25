@@ -3,6 +3,7 @@ import userRoutes from "./routes/userRoute";
 import productRoutes from "./routes/productRoute";
 import transactionRoutes from "./routes/transactionRoute";
 import digiflazzRoutes from "./routes/digiflazzRoute";
+import authRoutes from "./routes/authRoute";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { digiflazzWebhook } from "./controllers/digiflazzWebhookController";
@@ -17,9 +18,10 @@ app.use(cookieParser());
 setupSwagger(app);
 
 app.use("/users", userRoutes);
+app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 app.use("/transactions", transactionRoutes);
-app.post("digiflazz", digiflazzRoutes);
+app.post("/digiflazz", digiflazzRoutes);
 app.post("/api/digiflazz/webhook", digiflazzWebhook);
 
 app.listen(PORT, () => {

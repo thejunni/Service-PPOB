@@ -54,12 +54,25 @@ export const getProducts = async (req: Request, res: Response) => {
  *         description: Produk berhasil dibuat
  */
 export const createProduct = async (req: Request, res: Response) => {
-  const { name, category, price } = req.body;
-  const product = await prisma.product.create({
-    data: { name, category, price },
-  });
-  res.json(product);
-};
+  try {
+    const { idProvider, name, category, price } = req.body;
+
+    if (!idProvider || !name || !category || !price) {
+      return res
+        .status(400)
+        .json({ error: "idProvider, name, category, and price are required" });
+    }
+
+    const product = await prisma.product.create({
+      data: { idProvider, name, category, price },
+    });
+
+    res.status(201).json(product);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to create product" });
+  }
+}
 
 /**
  * @swagger
