@@ -10,6 +10,5 @@ const router = Router();
 
 router.get("/", authenticate, authorizeAdmin, getUsers);
 router.post("/", createUser);
-router.put("/:id/status", updateUserStatus, authorizeAdmin);
-
+router.put("/:id/status", authenticate, authorizeAdmin, updateUserStatus);
 export default router;

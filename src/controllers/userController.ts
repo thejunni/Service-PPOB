@@ -71,7 +71,7 @@ export const createUser = async (req: Request, res: Response) => {
 /**
  * @swagger
  * /users/{id}/status:
- *   patch:
+ *   put:
  *     summary: Update status user
  *     tags: [Users]
  *     parameters:
@@ -102,9 +102,15 @@ export const createUser = async (req: Request, res: Response) => {
 export const updateUserStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
-  const user = await prisma.user.update({
-    where: { id: Number(id) },
-    data: { status },
-  });
-  res.json(user);
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: Number(id) },
+      data: { status },
+    });
+
+    res.json({ message: "Status user diperbarui", user });
+  } catch (err) {
+    res.status(400).json({ message: "Gagal update status user", error: err });
+  }
 };

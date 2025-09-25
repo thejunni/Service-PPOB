@@ -1,8 +1,9 @@
-import swaggerJSDoc, { Options } from "swagger-jsdoc";
+// src/swagger.ts
+import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { Express } from "express";
 
-const options: Options = {
+const options: swaggerJSDoc.Options = {
   definition: {
     openapi: "3.0.0",
     info: {
@@ -24,13 +25,25 @@ const options: Options = {
         },
       },
     },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
   },
-  security: [{ bearerAuth: [] }],
-  apis: ["./src/controllers/*.ts"], // lokasi anotasi swagger-mu
+  apis: ["./src/controllers/*.ts", "./src/routes/*.ts"],
 };
 
 const swaggerSpec = swaggerJSDoc(options);
 
 export const setupSwagger = (app: Express) => {
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use(
+    "/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    })
+  );
 };
