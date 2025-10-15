@@ -68,6 +68,28 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 }
 
+model Branch {
+  id        Int        @id @default(autoincrement())
+  name      String
+  address   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  nasabah   Nasabah[]
+}
+
+model Nasabah {
+  id         Int       @id @default(autoincrement())
+  name       String
+  phone      String    @unique
+  email      String?
+  address    String?
+  balance    Int       @default(0)
+  branchId   Int
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
 enum UserStatus {
   VERIFIED
   UNVERIFIED

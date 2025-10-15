@@ -5,7 +5,7 @@ import prisma from "../prisma";
  * @swagger
  * tags:
  *   name: Users
- *   description: Endpoint untuk user
+ *   description: Endpoint untuk user (admin)
  */
 
 /**

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { getPriceList } from "../services/digiflazzService";
+import axios from "axios";
+import crypto from "crypto";
 import prisma from "../prisma";
 
 /**
@@ -77,5 +79,69 @@ export const digiflazzCallback = async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to process callback" });
+  }
+};
+
+/**
+ * @swagger
+ * /digiflazz/balance:
+ *   get:
+ *     summary: Ambil saldo sistem dari Digiflazz
+ *     tags: [Digiflazz]
+ *     responses:
+ *       200:
+ *         description: Saldo sistem dari Digiflazz
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 provider:
+ *                   type: string
+ *                   example: Digiflazz
+ *                 balance:
+ *                   type: number
+ *                   example: 1234567
+ *                 last_update:
+ *                   type: string
+ *                   example: "2025-10-15T07:00:00.000Z"
+ *       500:
+ *         description: Gagal mengambil saldo dari Digiflazz
+ */
+export const getDigiflazzBalance = async (req: Request, res: Response) => {
+  try {
+    const username = process.env.DIGIFLAZZ_USERNAME!;
+    const apiKey = process.env.DIGIFLAZZ_API_KEY!;
+    const sign = crypto
+      .createHash("md5")
+      .update(username + apiKey + "depo")
+      .digest("hex");
+
+    const payload = {
+      cmd: "deposit",
+      username,
+      sign,
+    };
+
+    const response = await axios.post(
+      "https://api.digiflazz.com/v1/cek-saldo",
+      payload
+    );
+
+    res.json({
+      status: "success",
+      provider: "Digiflazz",
+      balance: response.data.data.deposit,
+      last_update: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("Error fetching Digiflazz balance:", error.message);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch Digiflazz balance",
+    });
   }
 };
